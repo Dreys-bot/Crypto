@@ -5,7 +5,14 @@ const bcrypt = require("bcryptjs")
 const cors = require("cors")
 
 const app = express()
-app.use(cors())
+app.use(cors({
+  origin: ["https://giant-pages-146605.framer.app"],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"]
+}));
+
+// Prise en charge de la pré‑requête OPTIONS
+app.options("*", cors());
 app.use(express.json())
 
 // Remplace par ton URI MongoDB Atlas
@@ -25,6 +32,10 @@ const UserSchema = new mongoose.Schema({
 })
 
 const User = mongoose.model("User", UserSchema)
+
+app.get("/", (req, res) => {
+  res.send("✅ API opérationnelle");
+});
 
 // Route SIGNUP
 app.post("/signup", async (req, res) => {
