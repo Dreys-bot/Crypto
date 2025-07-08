@@ -1,76 +1,69 @@
 // server.js
-const express = require("express")
-const mongoose = require("mongoose")
-const bcrypt = require("bcryptjs")
-const cors = require("cors")
+const express = require("express");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const cors = require("cors");
 
-const app = express()
+const app = express();
+
+// CORS — autorise ton front Framer
 app.use(cors({
-  origin: ["https://giant-pages-146605.framer.app"],
-  methods: ["GET", "POST", "OPTIONS"],
+  origin: "https://giant-pages-146605.framer.app", 
+  methods: ["GET","POST","OPTIONS"],
   allowedHeaders: ["Content-Type"]
 }));
 
-// Prise en charge de la pré‑requête OPTIONS
-app.options("*", cors());
-app.use(express.json())
+// Parse JSON bodies
+app.use(express.json());
 
-// Remplace par ton URI MongoDB Atlas
-const MONGODB_URI = "mongodb+srv://fdagentai:Dr5elNKwoUJDQmGa@forecasting.yrkr0.mongodb.net/?retryWrites=true&w=majority&appName=forecasting"
-
-mongoose.connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-})
-.then(() => console.log("MongoDB connecté"))
-.catch(err => console.error("Erreur MongoDB", err))
-
-// Schéma utilisateur
-const UserSchema = new mongoose.Schema({
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-})
-
-const User = mongoose.model("User", UserSchema)
-
-app.get("/", (req, res) => {
+// Debug route
+app.get("/", (_req, res) => {
   res.send("✅ API opérationnelle");
 });
 
-// Route SIGNUP
+// MongoDB
+const MONGODB_URI = "mongodb+srv://fdagentai:Dr5elNKwoUJDQmGa@forecasting.yrkr0.mongodb.net/your-db?retryWrites=true&w=majority";
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log("MongoDB connecté"))
+  .catch(err => console.error("Erreur MongoDB", err));
+
+// User model
+const User = mongoose.model("User", new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+}));
+
+// SIGNUP
 app.post("/signup", async (req, res) => {
-    const { email, password } = req.body
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: "Champs manquants" });
+  }
+  const exists = await User.findOne({ email });
+  if (exists) {
+    return res.status(400).json({ success: false, message: "Utilisateur déjà existant" });
+  }
+  const hash = await bcrypt.hash(password, 10);
+  await new User({ email, password: hash }).save();
+  res.status(201).json({ success: true, message: "Compte créé avec succès" });
+});
 
-    const existingUser = await User.findOne({ email })
-    if (existingUser) {
-        return res.status(400).json({ success: false, message: "Utilisateur déjà existant" })
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const newUser = new User({ email, password: hashedPassword })
-
-    await newUser.save()
-    return res.status(201).json({ success: true, message: "Utilisateur créé avec succès" })
-})
-
-// Route LOGIN
+// LOGIN
 app.post("/login", async (req, res) => {
-    const { email, password } = req.body
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: "Champs manquants" });
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(400).json({ success: false, message: "Utilisateur introuvable" });
+  }
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) {
+    return res.status(401).json({ success: false, message: "Mot de passe incorrect" });
+  }
+  res.json({ success: true, message: "Connexion réussie" });
+});
 
-    const user = await User.findOne({ email })
-    if (!user) {
-        return res.status(400).json({ success: false, message: "Utilisateur introuvable" })
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password)
-    if (!isMatch) {
-        return res.status(401).json({ success: false, message: "Mot de passe incorrect" })
-    }
-
-    return res.json({ success: true, message: "Connexion réussie" })
-})
-
-const PORT = process.env.PORT || 3001
-app.listen(PORT, () => {
-    console.log(`Serveur démarré sur le port ${PORT}`)
-})
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
