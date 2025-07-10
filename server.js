@@ -33,6 +33,25 @@ const User = mongoose.model("User", new mongoose.Schema({
   password: { type: String, required: true },
 }));
 
+// Définit le schéma
+const clientSchema = new mongoose.Schema({
+  customId: String,
+  name: String,
+  email: String,
+  montantTotal: Number,
+  numero: String,
+  description: String,
+  portefeuille: {
+    immobilier: Number,
+    crypto: Number,
+    assuranceVie: Number,
+  },
+});
+
+// Enregistre le modèle "Client" dans la collection "customers"
+const Client = mongoose.model("Client", clientSchema, "customers");
+
+
 // SIGNUP
 app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
@@ -67,3 +86,38 @@ app.post("/login", async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+// GET all clients
+app.get("/clients", async (req, res) => {
+  try {
+    const clients = await Client.find();
+    res.json(clients);
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+// GET one client by ID
+app.get("/clients/:id", async (req, res) => {
+  try {
+    const client = await Client.findOne({ customId: req.params.id });
+    if (!client) return res.status(404).json({ success: false, message: "Client non trouvé" });
+    res.json(client);
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+});
+
+
+// post client
+app.post("/clients", async (req, res) => {
+  try {
+    const { name, email, numero, montantTotal, description, portefeuille } = req.body;
+    const newClient = new Client({ name, email, numero, montantTotal, description, portefeuille });
+    await newClient.save();
+    res.status(201).json({ success: true, client: newClient });
+  } catch (err) {
+    res.status(400).json({ success: false, message: "Erreur lors de l'ajout du client" });
+  }
+});
